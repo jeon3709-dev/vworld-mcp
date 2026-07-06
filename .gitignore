@@ -1,0 +1,10 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.agents/
+.system_generated/
+task.md
+implementation_plan.md
+walkthrough.md
