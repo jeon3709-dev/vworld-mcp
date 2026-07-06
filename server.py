@@ -37,6 +37,14 @@ NED_CHARACTERISTICS_URL = "http://api.vworld.kr/ned/data/getLandCharacteristics"
 
 DEFAULT_DOMAIN = os.environ.get("VWORLD_DOMAIN", "localhost")
 
+def get_api_headers() -> Dict[str, str]:
+    """Return common HTTP headers to prevent WAF blocks (like 502/403) from VWorld API when deployed to cloud."""
+    return {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": f"https://{DEFAULT_DOMAIN}/" if DEFAULT_DOMAIN != "localhost" else "http://localhost/",
+        "Accept": "application/json, text/plain, */*"
+    }
+
 def get_api_key() -> str:
     """Helper to retrieve VWorld API key and raise a user-friendly error if missing."""
     key = os.environ.get("VWORLD_API_KEY")
@@ -113,7 +121,7 @@ async def vworld_search(query: str, category: Literal["address", "place"] = "add
         if vworld_category:
             params["category"] = vworld_category
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, headers=get_api_headers()) as client:
             try:
                 response = await client.get(SEARCH_API_URL, params=params)
                 response.raise_for_status()
@@ -196,7 +204,7 @@ async def vworld_geocode(address: str, address_type: Literal["road", "parcel"] =
         "domain": DEFAULT_DOMAIN
     }
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=15.0, headers=get_api_headers()) as client:
         try:
             response = await client.get(ADDRESS_API_URL, params=params)
             response.raise_for_status()
@@ -252,7 +260,7 @@ async def vworld_reverse_geocode(lat: float, lon: float) -> Dict[str, Any]:
         "domain": DEFAULT_DOMAIN
     }
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=15.0, headers=get_api_headers()) as client:
         try:
             response = await client.get(ADDRESS_API_URL, params=params)
             response.raise_for_status()
@@ -309,7 +317,7 @@ async def vworld_get_parcel(pnu: str) -> Dict[str, Any]:
         "domain": DEFAULT_DOMAIN
     }
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=15.0, headers=get_api_headers()) as client:
         try:
             response = await client.get(DATA_API_URL, params=params)
             response.raise_for_status()
@@ -420,7 +428,7 @@ async def vworld_get_landuse_zone(
             "BBOX": bbox_str
         }
         
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, headers=get_api_headers()) as client:
             try:
                 response = await client.get(WFS_API_URL, params=params)
                 response.raise_for_status()
@@ -482,7 +490,7 @@ async def vworld_get_individual_price(pnu: str) -> Dict[str, Any]:
     current_year = datetime.datetime.now().year
     years_to_try = [str(current_year - i) for i in range(4)] # e.g. [2026, 2025, 2024, 2023]
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=15.0, headers=get_api_headers()) as client:
         for year in years_to_try:
             params = {
                 "key": api_key,
