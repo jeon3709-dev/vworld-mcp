@@ -529,9 +529,11 @@ async def vworld_get_individual_price(pnu: str) -> Dict[str, Any]:
 
 if __name__ == "__main__":
     import sys
-    # Supports both stdio (default) and sse transport modes
-    if len(sys.argv) > 1 and sys.argv[1] == "sse":
-        logger.info("Starting VWorld MCP Server in SSE transport mode...")
-        mcp.run(transport="sse")
+    # Automatically switch to SSE mode and bind to host/port if PORT environment variable is present (e.g., Render)
+    port_env = os.environ.get("PORT")
+    if port_env or (len(sys.argv) > 1 and sys.argv[1] == "sse"):
+        port = int(port_env) if port_env else 8000
+        logger.info(f"Starting VWorld MCP Server in SSE transport mode on host 0.0.0.0, port {port}...")
+        mcp.run(transport="sse", host="0.0.0.0", port=port)
     else:
         mcp.run()
