@@ -35,13 +35,13 @@ DATA_API_URL = "https://api.vworld.kr/req/data"
 WFS_API_URL = "https://api.vworld.kr/req/wfs"
 NED_CHARACTERISTICS_URL = "http://api.vworld.kr/ned/data/getLandCharacteristics"
 
-DEFAULT_DOMAIN = os.environ.get("VWORLD_DOMAIN", "localhost")
+DEFAULT_DOMAIN = "localhost"
 
 def get_api_headers() -> Dict[str, str]:
     """Return common HTTP headers to prevent WAF blocks (like 502/403) from VWorld API when deployed to cloud."""
     return {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": f"https://{DEFAULT_DOMAIN}/" if DEFAULT_DOMAIN != "localhost" else "http://localhost/",
+        "Referer": "http://localhost/",
         "Accept": "application/json, text/plain, */*"
     }
 
