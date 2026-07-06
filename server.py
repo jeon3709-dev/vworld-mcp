@@ -16,7 +16,17 @@ load_dotenv()
 VWORLD_API_KEY = os.environ.get("VWORLD_API_KEY")
 
 # Initialize FastMCP Server
-mcp = FastMCP("VWorld Open API Server")
+# Determine host and port dynamically depending on Render PORT env var or CLI sse argument
+port_env = os.environ.get("PORT")
+is_sse = bool(port_env) or ("sse" in sys.argv)
+mcp_port = int(port_env) if port_env else 8000
+mcp_host = "0.0.0.0" if is_sse else "127.0.0.1"
+
+mcp = FastMCP(
+    "VWorld Open API Server",
+    host=mcp_host,
+    port=mcp_port
+)
 
 # VWorld Endpoints
 SEARCH_API_URL = "https://api.vworld.kr/req/search"
@@ -529,11 +539,9 @@ async def vworld_get_individual_price(pnu: str) -> Dict[str, Any]:
 
 if __name__ == "__main__":
     import sys
-    # Automatically switch to SSE mode and bind to host/port if PORT environment variable is present (e.g., Render)
-    port_env = os.environ.get("PORT")
-    if port_env or (len(sys.argv) > 1 and sys.argv[1] == "sse"):
-        port = int(port_env) if port_env else 8000
-        logger.info(f"Starting VWorld MCP Server in SSE transport mode on host 0.0.0.0, port {port}...")
-        mcp.run(transport="sse", host="0.0.0.0", port=port)
+    # Supports both stdio (default) and sse transport modes
+    if os.environ.get("PORT") or (len(sys.argv) > 1 and sys.argv[1] == "sse"):
+        logger.info(f"Starting VWorld MCP Server in SSE transport mode on host {mcp_host}, port {mcp_port}...")
+        mcp.run(transport="sse")
     else:
         mcp.run()
