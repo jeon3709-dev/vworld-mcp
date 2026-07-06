@@ -25,7 +25,7 @@ DATA_API_URL = "https://api.vworld.kr/req/data"
 WFS_API_URL = "https://api.vworld.kr/req/wfs"
 NED_CHARACTERISTICS_URL = "http://api.vworld.kr/ned/data/getLandCharacteristics"
 
-DEFAULT_DOMAIN = "localhost"
+DEFAULT_DOMAIN = os.environ.get("VWORLD_DOMAIN", "localhost")
 
 def get_api_key() -> str:
     """Helper to retrieve VWorld API key and raise a user-friendly error if missing."""
