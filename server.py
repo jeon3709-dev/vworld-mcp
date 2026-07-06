@@ -539,10 +539,11 @@ async def vworld_get_individual_price(pnu: str) -> Dict[str, Any]:
 
 if __name__ == "__main__":
     import sys
+    port_env = os.environ.get("PORT")
     # Supports both stdio (default) and sse transport modes
-    if os.environ.get("PORT") or (len(sys.argv) > 1 and sys.argv[1] == "sse"):
+    if port_env or (len(sys.argv) > 1 and sys.argv[1] == "sse"):
         port = int(port_env) if port_env else 8000
-        logger.info(f"Starting VWorld MCP Server in SSE transport mode on host {mcp_host}, port {mcp_port}...")
+        logger.info(f"Starting VWorld MCP Server in SSE transport mode on host 0.0.0.0, port {port}...")
         
         # Retrieve Starlette application from FastMCP
         app = mcp.sse_app()
