@@ -45,6 +45,17 @@ VWORLD_API_KEY=YOUR_VWORLD_API_KEY_HERE
 
 ---
 
+## 🌍 배포 가이드라인 및 주의사항 (해외 IP 차단)
+
+> [!WARNING]
+> **VWorld Open API는 보안(WAF) 정책상 해외 IP(미국, 싱가포르 등) 대역에서의 요청을 네트워크 레벨에서 강제 차단(502 Bad Gateway 또는 Timeout)합니다.**
+
+- **Render, AWS 글로벌 리전, Fly.io** 등 해외 망을 사용하는 PaaS 플랫폼에 이 MCP 서버를 배포할 경우 VWorld API 통신이 차단됩니다.
+- **권장 배포 환경**: Cloudtype, 네이버 클라우드(NCP), 오라클 클라우드(서울/춘천 리전) 등 **한국 IP**를 할당받을 수 있는 호스팅 환경에 배포하거나, 로컬 PC에서 `stdio` 모드로 Claude Desktop과 직접 연동하여 사용해야 합니다.
+- **프록시(Proxy) 우회**: 불가피하게 해외 클라우드에 배포해야 할 경우, 한국 IP를 가진 프록시 서버를 구축한 뒤 환경 변수 `VWORLD_PROXY_URL` (예: `http://korea-proxy.example.com:8080`)을 설정하면 MCP 서버가 이를 경유하여 VWorld와 통신할 수 있습니다.
+
+---
+
 ## 🚀 실행 및 검증 (MCP Inspector)
 
 MCP SDK에 포함된 인스펙터를 사용해 서버의 동작 및 도구(Tool) 호출을 수동으로 검증할 수 있습니다.

@@ -33,17 +33,28 @@ SEARCH_API_URL = "https://api.vworld.kr/req/search"
 ADDRESS_API_URL = "https://api.vworld.kr/req/address"
 DATA_API_URL = "https://api.vworld.kr/req/data"
 WFS_API_URL = "https://api.vworld.kr/req/wfs"
-NED_CHARACTERISTICS_URL = "http://api.vworld.kr/ned/data/getLandCharacteristics"
+NED_CHARACTERISTICS_URL = "https://api.vworld.kr/ned/data/getLandCharacteristics"
 
-DEFAULT_DOMAIN = "localhost"
+DEFAULT_DOMAIN = os.environ.get("VWORLD_DOMAIN", "localhost")
 
 def get_api_headers() -> Dict[str, str]:
     """Return common HTTP headers to prevent WAF blocks (like 502/403) from VWorld API when deployed to cloud."""
     return {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "http://localhost/",
+        "Referer": f"https://{DEFAULT_DOMAIN}/" if DEFAULT_DOMAIN != "localhost" else "http://localhost/",
         "Accept": "application/json, text/plain, */*"
     }
+
+def get_http_client() -> httpx.AsyncClient:
+    """Return an httpx AsyncClient with optional proxy configuration."""
+    proxy_url = os.environ.get("VWORLD_PROXY_URL")
+    kwargs = {
+        "timeout": 15.0,
+        "headers": get_api_headers()
+    }
+    if proxy_url:
+        kwargs["proxy"] = proxy_url
+    return httpx.AsyncClient(**kwargs)
 
 def get_api_key() -> str:
     """Helper to retrieve VWorld API key and raise a user-friendly error if missing."""
@@ -121,14 +132,14 @@ async def vworld_search(query: str, category: Literal["address", "place"] = "add
         if vworld_category:
             params["category"] = vworld_category
 
-        async with httpx.AsyncClient(timeout=15.0, headers=get_api_headers()) as client:
+        async with get_http_client() as client:
             try:
                 response = await client.get(SEARCH_API_URL, params=params)
                 response.raise_for_status()
                 data = response.json()
             except Exception as e:
                 logger.error(f"Search API request failed: {str(e)}")
-                return []
+                return {"status": "NETWORK_ERROR", "message": f"Network request failed: {str(e)}"}
 
         res_envelope = data.get("response", {})
         status = res_envelope.get("status", "ERROR")
@@ -157,6 +168,12 @@ async def vworld_search(query: str, category: Literal["address", "place"] = "add
             fetch_search("ADDRESS", "road"),
             fetch_search("ADDRESS", "parcel")
         )
+        
+        if isinstance(road_results, dict) and road_results.get("status") == "NETWORK_ERROR":
+            return road_results
+        if isinstance(parcel_results, dict) and parcel_results.get("status") == "NETWORK_ERROR":
+            return parcel_results
+
         merged = road_results + parcel_results
         
         # Remove duplicates
@@ -172,6 +189,8 @@ async def vworld_search(query: str, category: Literal["address", "place"] = "add
         return {"status": "OK", "results": unique_results}
     else: # place
         results = await fetch_search("PLACE", None)
+        if isinstance(results, dict) and results.get("status") == "NETWORK_ERROR":
+            return results
         if not results:
             return {"status": "NOT_FOUND", "message": "No search results found.", "results": []}
         return {"status": "OK", "results": results}
@@ -204,13 +223,13 @@ async def vworld_geocode(address: str, address_type: Literal["road", "parcel"] =
         "domain": DEFAULT_DOMAIN
     }
 
-    async with httpx.AsyncClient(timeout=15.0, headers=get_api_headers()) as client:
+    async with get_http_client() as client:
         try:
             response = await client.get(ADDRESS_API_URL, params=params)
             response.raise_for_status()
             data = response.json()
         except httpx.HTTPError as e:
-            return {"status": "ERROR", "message": f"HTTP request failed: {str(e)}"}
+            return {"status": "NETWORK_ERROR", "message": f"Network request failed: {str(e)}"}
         except ValueError:
             return {"status": "ERROR", "message": f"Failed to parse JSON response: {response.text}"}
 
@@ -260,13 +279,13 @@ async def vworld_reverse_geocode(lat: float, lon: float) -> Dict[str, Any]:
         "domain": DEFAULT_DOMAIN
     }
 
-    async with httpx.AsyncClient(timeout=15.0, headers=get_api_headers()) as client:
+    async with get_http_client() as client:
         try:
             response = await client.get(ADDRESS_API_URL, params=params)
             response.raise_for_status()
             data = response.json()
         except httpx.HTTPError as e:
-            return {"status": "ERROR", "message": f"HTTP request failed: {str(e)}"}
+            return {"status": "NETWORK_ERROR", "message": f"Network request failed: {str(e)}"}
         except ValueError:
             return {"status": "ERROR", "message": f"Failed to parse JSON response: {response.text}"}
 
@@ -317,13 +336,13 @@ async def vworld_get_parcel(pnu: str) -> Dict[str, Any]:
         "domain": DEFAULT_DOMAIN
     }
 
-    async with httpx.AsyncClient(timeout=15.0, headers=get_api_headers()) as client:
+    async with get_http_client() as client:
         try:
             response = await client.get(DATA_API_URL, params=params)
             response.raise_for_status()
             data = response.json()
         except httpx.HTTPError as e:
-            return {"status": "ERROR", "message": f"HTTP request failed: {str(e)}"}
+            return {"status": "NETWORK_ERROR", "message": f"Network request failed: {str(e)}"}
         except ValueError:
             return {"status": "ERROR", "message": f"Failed to parse JSON response: {response.text}"}
 
@@ -428,7 +447,7 @@ async def vworld_get_landuse_zone(
             "BBOX": bbox_str
         }
         
-        async with httpx.AsyncClient(timeout=15.0, headers=get_api_headers()) as client:
+        async with get_http_client() as client:
             try:
                 response = await client.get(WFS_API_URL, params=params)
                 response.raise_for_status()
@@ -455,13 +474,15 @@ async def vworld_get_landuse_zone(
                 return results
             except Exception as e:
                 logger.error(f"Error fetching zoning layer {layer_id}: {str(e)}")
-                return []
+                return {"status": "NETWORK_ERROR", "message": f"Network request failed for layer {layer_id}: {str(e)}"}
 
     # Query all 4 zoning layers concurrently
     tasks = [fetch_layer_zoning(lid, lname) for lid, lname in layers.items()]
     all_results = await asyncio.gather(*tasks)
     
     for rlist in all_results:
+        if isinstance(rlist, dict) and rlist.get("status") == "NETWORK_ERROR":
+            return rlist
         zoning_results.extend(rlist)
 
     return {
@@ -490,7 +511,7 @@ async def vworld_get_individual_price(pnu: str) -> Dict[str, Any]:
     current_year = datetime.datetime.now().year
     years_to_try = [str(current_year - i) for i in range(4)] # e.g. [2026, 2025, 2024, 2023]
 
-    async with httpx.AsyncClient(timeout=15.0, headers=get_api_headers()) as client:
+    async with get_http_client() as client:
         for year in years_to_try:
             params = {
                 "key": api_key,
@@ -536,6 +557,7 @@ async def vworld_get_individual_price(pnu: str) -> Dict[str, Any]:
                         }
             except httpx.HTTPError as e:
                 logger.error(f"HTTP error querying price for year {year}: {str(e)}")
+                return {"status": "NETWORK_ERROR", "message": f"Network request failed: {str(e)}"}
             except ValueError:
                 # May have received XML or non-JSON (like VWorld system error)
                 logger.error(f"Non-JSON response received from Land Characteristics for year {year}")
@@ -544,6 +566,59 @@ async def vworld_get_individual_price(pnu: str) -> Dict[str, Any]:
         "status": "NOT_FOUND", 
         "message": f"Individual land price not found for PNU {pnu} in years {', '.join(years_to_try)}."
     }
+
+@mcp.tool()
+async def vworld_health_check() -> Dict[str, Any]:
+    """
+    Diagnostic tool to check VWorld API connectivity and potential IP blocks (e.g. 502 Bad Gateway).
+    It sends a lightweight request to the VWorld Search API.
+    Use this to verify if the current deployment environment (e.g. Render) is network-blocked by VWorld WAF.
+    """
+    api_key = get_api_key()
+    params = {
+        "key": api_key,
+        "service": "search",
+        "request": "search",
+        "version": "2.0",
+        "query": "서울",
+        "type": "ADDRESS",
+        "format": "json",
+        "errorFormat": "json",
+        "domain": DEFAULT_DOMAIN,
+        "size": "1"
+    }
+
+    import time
+    start_time = time.time()
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.get(SEARCH_API_URL, params=params)
+            elapsed = round(time.time() - start_time, 3)
+            
+            status_code = response.status_code
+            
+            try:
+                data = response.json()
+            except ValueError:
+                data = response.text[:200]
+                
+            return {
+                "status": "OK" if status_code == 200 else "NETWORK_ERROR",
+                "http_status_code": status_code,
+                "elapsed_seconds": elapsed,
+                "response_preview": data,
+                "message": "Connection successful." if status_code == 200 else f"Blocked or failed with HTTP {status_code}"
+            }
+            
+        except Exception as e:
+            elapsed = round(time.time() - start_time, 3)
+            return {
+                "status": "NETWORK_ERROR",
+                "http_status_code": None,
+                "elapsed_seconds": elapsed,
+                "message": f"Network request failed completely: {str(e)}"
+            }
 
 if __name__ == "__main__":
     import sys
