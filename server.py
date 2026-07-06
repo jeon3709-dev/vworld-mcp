@@ -541,7 +541,24 @@ if __name__ == "__main__":
     import sys
     # Supports both stdio (default) and sse transport modes
     if os.environ.get("PORT") or (len(sys.argv) > 1 and sys.argv[1] == "sse"):
+        port = int(port_env) if port_env else 8000
         logger.info(f"Starting VWorld MCP Server in SSE transport mode on host {mcp_host}, port {mcp_port}...")
-        mcp.run(transport="sse")
+        
+        # Retrieve Starlette application from FastMCP
+        app = mcp.sse_app()
+        
+        # Add CORS middleware to prevent Claude Web (claude.ai) from being blocked by browser CORS policy
+        from starlette.middleware.cors import CORSMiddleware
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+        
+        import uvicorn
+        logger.info(f"Running uvicorn on 0.0.0.0:{port} with CORS enabled...")
+        uvicorn.run(app, host="0.0.0.0", port=port)
     else:
         mcp.run()
