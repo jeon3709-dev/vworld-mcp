@@ -547,18 +547,26 @@ if __name__ == "__main__":
         # Retrieve Starlette application from FastMCP
         app = mcp.sse_app()
         
-        # Add CORS middleware to prevent Claude Web (claude.ai) from being blocked by browser CORS policy
+        # Add middleware to disable buffering for cloud proxy (prevents 502 Bad Gateway / timeouts in SSE)
+        @app.middleware("http")
+        async def disable_buffering_middleware(request, call_next):
+            response = await call_next(request)
+            response.headers["X-Accel-Buffering"] = "no"
+            response.headers["Cache-Control"] = "no-cache, no-transform"
+            return response
+        
+        # Add CORS middleware (allow_credentials must be False when allow_origins is "*")
         from starlette.middleware.cors import CORSMiddleware
         app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
-            allow_credentials=True,
+            allow_credentials=False,
             allow_methods=["*"],
             allow_headers=["*"],
         )
         
         import uvicorn
-        logger.info(f"Running uvicorn on 0.0.0.0:{port} with CORS enabled...")
+        logger.info(f"Running uvicorn on 0.0.0.0:{port} with CORS and buffering disabled...")
         uvicorn.run(app, host="0.0.0.0", port=port)
     else:
         mcp.run()
