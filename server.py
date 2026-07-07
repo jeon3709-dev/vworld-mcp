@@ -639,13 +639,20 @@ if __name__ == "__main__":
         app = mcp.sse_app()
         
         # Add middleware to disable buffering for cloud proxy (prevents 502 Bad Gateway / timeouts in SSE)
-        from starlette.middleware.base import BaseHTTPMiddleware
-        class DisableBufferingMiddleware(BaseHTTPMiddleware):
-            async def dispatch(self, request, call_next):
-                response = await call_next(request)
-                response.headers["X-Accel-Buffering"] = "no"
-                response.headers["Cache-Control"] = "no-cache, no-transform"
-                return response
+        class DisableBufferingMiddleware:
+            def __init__(self, app):
+                self.app = app
+            async def __call__(self, scope, receive, send):
+                if scope["type"] != "http":
+                    await self.app(scope, receive, send)
+                    return
+                async def send_wrapper(message):
+                    if message["type"] == "http.response.start":
+                        headers = message.setdefault("headers", [])
+                        headers.append((b"x-accel-buffering", b"no"))
+                        headers.append((b"cache-control", b"no-cache, no-transform"))
+                    await send(message)
+                await self.app(scope, receive, send_wrapper)
         app.add_middleware(DisableBufferingMiddleware)
         
         # Add CORS middleware (allow_credentials must be False when allow_origins is "*")
