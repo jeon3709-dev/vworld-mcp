@@ -630,8 +630,15 @@ async def vworld_health_check() -> Dict[str, Any]:
 if __name__ == "__main__":
     import sys
     port_env = os.environ.get("PORT")
-    # Supports both stdio (default) and sse transport modes
-    if port_env or (len(sys.argv) > 1 and sys.argv[1] == "sse"):
+    # Transport selection.
+    # This server is deployed primarily as a web (SSE) service, and cloud platforms
+    # may launch it as a bare "python server.py" without injecting PORT. If we fell
+    # back to stdio in that case, the process would immediately hit EOF on the absent
+    # stdin and exit -> crash loop -> pod stuck "starting". So default to SSE web mode
+    # and only use stdio when explicitly requested via the "stdio" argument
+    # (e.g. local MCP clients: `python server.py stdio`).
+    use_stdio = len(sys.argv) > 1 and sys.argv[1] == "stdio"
+    if not use_stdio:
         # Default to 8080 (Cloudtype's routing port) when PORT is not injected, so
         # the bound port deterministically matches the platform's health-check port.
         port = int(port_env) if port_env else 8080
