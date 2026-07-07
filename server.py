@@ -1,5 +1,12 @@
 import os
 import sys
+import re
+
+def sanitize_error(msg: str) -> str:
+    """Mask the VWORLD_API_KEY in error messages to prevent credential leakage."""
+    if not msg:
+        return ""
+    return re.sub(r'(key=)[^&\'"\s]+', r'\g<1>***', msg)
 import logging
 from typing import Literal, Optional, List, Dict, Any
 from dotenv import load_dotenv
@@ -138,8 +145,8 @@ async def vworld_search(query: str, category: Literal["address", "place"] = "add
                 response.raise_for_status()
                 data = response.json()
             except Exception as e:
-                logger.error(f"Search API request failed: {str(e)}")
-                return {"status": "NETWORK_ERROR", "message": f"Network request failed: {str(e)}"}
+                logger.error(f"Search API request failed: {sanitize_error(str(e))}")
+                return {"status": "NETWORK_ERROR", "message": f"Network request failed: {sanitize_error(str(e))}"}
 
         res_envelope = data.get("response", {})
         status = res_envelope.get("status", "ERROR")
@@ -229,7 +236,7 @@ async def vworld_geocode(address: str, address_type: Literal["road", "parcel"] =
             response.raise_for_status()
             data = response.json()
         except httpx.HTTPError as e:
-            return {"status": "NETWORK_ERROR", "message": f"Network request failed: {str(e)}"}
+            return {"status": "NETWORK_ERROR", "message": f"Network request failed: {sanitize_error(str(e))}"}
         except ValueError:
             return {"status": "ERROR", "message": f"Failed to parse JSON response: {response.text}"}
 
@@ -285,7 +292,7 @@ async def vworld_reverse_geocode(lat: float, lon: float) -> Dict[str, Any]:
             response.raise_for_status()
             data = response.json()
         except httpx.HTTPError as e:
-            return {"status": "NETWORK_ERROR", "message": f"Network request failed: {str(e)}"}
+            return {"status": "NETWORK_ERROR", "message": f"Network request failed: {sanitize_error(str(e))}"}
         except ValueError:
             return {"status": "ERROR", "message": f"Failed to parse JSON response: {response.text}"}
 
@@ -342,7 +349,7 @@ async def vworld_get_parcel(pnu: str) -> Dict[str, Any]:
             response.raise_for_status()
             data = response.json()
         except httpx.HTTPError as e:
-            return {"status": "NETWORK_ERROR", "message": f"Network request failed: {str(e)}"}
+            return {"status": "NETWORK_ERROR", "message": f"Network request failed: {sanitize_error(str(e))}"}
         except ValueError:
             return {"status": "ERROR", "message": f"Failed to parse JSON response: {response.text}"}
 
@@ -403,7 +410,7 @@ async def vworld_get_landuse_zone(
             query_lat, query_lon = calculate_centroid(geom)
             logger.info(f"Calculated centroid for PNU {pnu}: lat={query_lat}, lon={query_lon}")
         except Exception as e:
-            return {"status": "ERROR", "message": f"Centroid calculation failed: {str(e)}"}
+            return {"status": "ERROR", "message": f"Centroid calculation failed: {sanitize_error(str(e))}"}
     elif lat is not None and lon is not None:
         query_lat, query_lon = lat, lon
     else:
@@ -473,8 +480,8 @@ async def vworld_get_landuse_zone(
                     })
                 return results
             except Exception as e:
-                logger.error(f"Error fetching zoning layer {layer_id}: {str(e)}")
-                return {"status": "NETWORK_ERROR", "message": f"Network request failed for layer {layer_id}: {str(e)}"}
+                logger.error(f"Error fetching zoning layer {layer_id}: {sanitize_error(str(e))}")
+                return {"status": "NETWORK_ERROR", "message": f"Network request failed for layer {layer_id}: {sanitize_error(str(e))}"}
 
     # Query all 4 zoning layers concurrently
     tasks = [fetch_layer_zoning(lid, lname) for lid, lname in layers.items()]
@@ -556,8 +563,8 @@ async def vworld_get_individual_price(pnu: str) -> Dict[str, Any]:
                             "properties": field
                         }
             except httpx.HTTPError as e:
-                logger.error(f"HTTP error querying price for year {year}: {str(e)}")
-                return {"status": "NETWORK_ERROR", "message": f"Network request failed: {str(e)}"}
+                logger.error(f"HTTP error querying price for year {year}: {sanitize_error(str(e))}")
+                return {"status": "NETWORK_ERROR", "message": f"Network request failed: {sanitize_error(str(e))}"}
             except ValueError:
                 # May have received XML or non-JSON (like VWorld system error)
                 logger.error(f"Non-JSON response received from Land Characteristics for year {year}")
@@ -617,7 +624,7 @@ async def vworld_health_check() -> Dict[str, Any]:
                 "status": "NETWORK_ERROR",
                 "http_status_code": None,
                 "elapsed_seconds": elapsed,
-                "message": f"Network request failed completely: {str(e)}"
+                "message": f"Network request failed completely: {sanitize_error(str(e))}"
             }
 
 if __name__ == "__main__":
