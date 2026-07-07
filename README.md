@@ -49,10 +49,23 @@ VWORLD_API_KEY=YOUR_VWORLD_API_KEY_HERE
 
 > [!WARNING]
 > **VWorld Open API는 보안(WAF) 정책상 해외 IP(미국, 싱가포르 등) 대역에서의 요청을 네트워크 레벨에서 강제 차단(502 Bad Gateway 또는 Timeout)합니다.**
+> **Render 등 해외 망을 사용하는 PaaS 플랫폼에 이 MCP 서버를 배포할 경우 VWorld API 통신이 차단되므로 사용이 불가합니다.**
 
-- **Render, AWS 글로벌 리전, Fly.io** 등 해외 망을 사용하는 PaaS 플랫폼에 이 MCP 서버를 배포할 경우 VWorld API 통신이 차단됩니다.
-- **권장 배포 환경**: Cloudtype, 네이버 클라우드(NCP), 오라클 클라우드(서울/춘천 리전) 등 **한국 IP**를 할당받을 수 있는 호스팅 환경에 배포하거나, 로컬 PC에서 `stdio` 모드로 Claude Desktop과 직접 연동하여 사용해야 합니다.
-- **프록시(Proxy) 우회**: 불가피하게 해외 클라우드에 배포해야 할 경우, 한국 IP를 가진 프록시 서버를 구축한 뒤 환경 변수 `VWORLD_PROXY_URL` (예: `http://korea-proxy.example.com:8080`)을 설정하면 MCP 서버가 이를 경유하여 VWorld와 통신할 수 있습니다.
+### ☁️ Cloudtype (한국 IP 호스팅) 배포 가이드
+
+해외 IP 차단 문제를 해결하기 위해, 한국 IP를 기본 제공하는 **Cloudtype** 배포를 권장합니다.
+저장소에 이미 `Procfile`이 포함되어 있어, 별도의 서버 코드 수정 없이 바로 배포할 수 있습니다.
+
+1. **GitHub 연동**: Cloudtype 콘솔에서 새 프로젝트를 생성하고 본 GitHub 저장소를 연결합니다.
+2. **환경 변수 설정**: 배포 설정 화면에서 다음 환경 변수를 추가합니다.
+   - `VWORLD_API_KEY`: 발급받은 VWorld API 키
+   - `VWORLD_DOMAIN`: 새로 생성된 Cloudtype 앱 도메인 (예: `my-app.cloudtype.app`)
+   - *(참고: `PORT` 환경 변수는 Cloudtype이 자동 주입하므로 따로 설정할 필요 없습니다.)*
+3. **배포 후 MCP 접속**:
+   - Claude Desktop 또는 MCP 클라이언트에 입력할 접속 URL은 다음과 같습니다:
+   - **`https://<새로 발급된 앱주소>.cloudtype.app/sse`**
+
+- **프록시(Proxy) 우회 (옵션)**: 불가피하게 해외 클라우드를 유지해야 할 경우, 한국 IP를 가진 프록시 서버를 구축한 뒤 환경 변수 `VWORLD_PROXY_URL`을 설정하면 MCP 서버가 이를 경유하여 통신할 수 있습니다.
 
 ---
 
