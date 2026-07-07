@@ -642,16 +642,21 @@ if __name__ == "__main__":
         # Default to 8080 (Cloudtype's routing port) when PORT is not injected, so
         # the bound port deterministically matches the platform's health-check port.
         port = int(port_env) if port_env else 8080
-        logger.info(f"Starting VWorld MCP Server in SSE transport mode on host 0.0.0.0, port {port}...")
-        
-        # Retrieve Starlette application from FastMCP
-        app = mcp.sse_app()
+        logger.info(f"Starting VWorld MCP Server in HTTP transport mode on host 0.0.0.0, port {port}...")
 
-        # Health-check route. Cloud platforms (Cloudtype/Render) probe "/" to decide
-        # if the pod is ready. FastMCP's SSE app returns 404 on "/", which some
-        # platforms treat as "not ready", leaving the deploy stuck in "waiting" forever.
+        # Base app = Streamable HTTP transport (endpoint: /mcp). This is the modern
+        # MCP transport that claude.ai custom connectors expect. Using it as the base
+        # preserves the required StreamableHTTP session-manager lifespan.
+        app = mcp.streamable_http_app()
+
+        # Also expose the legacy SSE transport (/sse + /messages/) so older MCP
+        # clients that only speak SSE keep working.
         from starlette.routing import Route
         from starlette.responses import PlainTextResponse
+        app.router.routes.extend(mcp.sse_app().router.routes)
+
+        # Health-check route. Cloud platforms (Cloudtype/Render) probe "/" to decide
+        # if the pod is ready; without a 2xx here the deploy can hang in "waiting".
         async def _health(request):
             return PlainTextResponse("ok")
         app.router.routes.append(Route("/", _health, methods=["GET"]))
