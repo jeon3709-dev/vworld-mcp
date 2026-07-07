@@ -1,0 +1,18 @@
+# Pyrefly configuration.
+#
+# Only analyze this project's own source files. Without this, Pyrefly also scans
+# the .venv (installed third-party packages) and its own internal
+# "_pyrefly_virtual_/inmemory" buffers, flooding the IDE Problems panel with
+# hundreds of false positives ("Parse error", "return outside of a function",
+# etc.) that have nothing to do with our code.
+project-includes = [
+    "server.py",
+    "test_remote_mcp.py",
+]
+
+project-excludes = [
+    "**/.venv/**",
+    "**/venv/**",
+    "**/__pycache__/**",
+    "**/_pyrefly_virtual_/**",
+]

@@ -99,7 +99,6 @@ def calculate_centroid(geojson_geom: Dict[str, Any]) -> tuple[float, float]:
     Calculate a simple centroid (mean coordinate) of a GeoJSON geometry.
     This avoids external dependencies like shapely for lightweight execution.
     """
-    geom_type = geojson_geom.get("type")
     coords = geojson_geom.get("coordinates", [])
 
     if not coords:
@@ -636,7 +635,6 @@ async def vworld_health_check() -> Dict[str, Any]:
             }
 
 if __name__ == "__main__":
-    import sys
     port_env = os.environ.get("PORT")
     # Transport selection.
     # This server is deployed primarily as a web (SSE) service, and cloud platforms
