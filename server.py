@@ -29,10 +29,18 @@ is_sse = bool(port_env) or ("sse" in sys.argv)
 mcp_port = int(port_env) if port_env else 8000
 mcp_host = "0.0.0.0" if is_sse else "127.0.0.1"
 
+# Disable MCP's DNS-rebinding (Host header) protection. It defaults to allowing
+# only localhost, so behind a cloud host (e.g. *.cloudtype.app) every request is
+# rejected with "Invalid Host header" (HTTP 421) and clients like claude.ai cannot
+# connect. This server is a public, unauthenticated API proxy with no local
+# resources to protect, so relaxing the host check is safe here.
+from mcp.server.transport_security import TransportSecuritySettings
+
 mcp = FastMCP(
     "VWorld Open API Server",
     host=mcp_host,
-    port=mcp_port
+    port=mcp_port,
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
 
 # VWorld Endpoints
