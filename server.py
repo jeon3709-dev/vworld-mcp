@@ -632,7 +632,9 @@ if __name__ == "__main__":
     port_env = os.environ.get("PORT")
     # Supports both stdio (default) and sse transport modes
     if port_env or (len(sys.argv) > 1 and sys.argv[1] == "sse"):
-        port = int(port_env) if port_env else 8000
+        # Default to 8080 (Cloudtype's routing port) when PORT is not injected, so
+        # the bound port deterministically matches the platform's health-check port.
+        port = int(port_env) if port_env else 8080
         logger.info(f"Starting VWorld MCP Server in SSE transport mode on host 0.0.0.0, port {port}...")
         
         # Retrieve Starlette application from FastMCP
