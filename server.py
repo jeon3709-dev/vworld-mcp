@@ -63,7 +63,7 @@ def get_api_headers() -> Dict[str, str]:
 def get_http_client() -> httpx.AsyncClient:
     """Return an httpx AsyncClient with optional proxy configuration."""
     proxy_url = os.environ.get("VWORLD_PROXY_URL")
-    kwargs = {
+    kwargs: Dict[str, Any] = {
         "timeout": 15.0,
         "headers": get_api_headers()
     }
@@ -130,7 +130,7 @@ async def vworld_search(query: str, category: Literal["address", "place"] = "add
     """
     api_key = get_api_key()
     
-    async def fetch_search(vworld_type: str, vworld_category: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def fetch_search(vworld_type: str, vworld_category: Optional[str] = None) -> List[Dict[str, Any]] | Dict[str, Any]:
         params = {
             "key": api_key,
             "service": "search",
@@ -183,9 +183,10 @@ async def vworld_search(query: str, category: Literal["address", "place"] = "add
             fetch_search("ADDRESS", "parcel")
         )
         
-        if isinstance(road_results, dict) and road_results.get("status") == "NETWORK_ERROR":
+        # fetch_search returns a list of results, or an error dict on network failure.
+        if isinstance(road_results, dict):
             return road_results
-        if isinstance(parcel_results, dict) and parcel_results.get("status") == "NETWORK_ERROR":
+        if isinstance(parcel_results, dict):
             return parcel_results
 
         merged = road_results + parcel_results
@@ -203,7 +204,7 @@ async def vworld_search(query: str, category: Literal["address", "place"] = "add
         return {"status": "OK", "results": unique_results}
     else: # place
         results = await fetch_search("PLACE", None)
-        if isinstance(results, dict) and results.get("status") == "NETWORK_ERROR":
+        if isinstance(results, dict):
             return results
         if not results:
             return {"status": "NOT_FOUND", "message": "No search results found.", "results": []}
@@ -238,6 +239,7 @@ async def vworld_geocode(address: str, address_type: Literal["road", "parcel"] =
     }
 
     async with get_http_client() as client:
+        response = None
         try:
             response = await client.get(ADDRESS_API_URL, params=params)
             response.raise_for_status()
@@ -245,7 +247,8 @@ async def vworld_geocode(address: str, address_type: Literal["road", "parcel"] =
         except httpx.HTTPError as e:
             return {"status": "NETWORK_ERROR", "message": f"Network request failed: {sanitize_error(str(e))}"}
         except ValueError:
-            return {"status": "ERROR", "message": f"Failed to parse JSON response: {response.text}"}
+            body = response.text if response is not None else ""
+            return {"status": "ERROR", "message": f"Failed to parse JSON response: {sanitize_error(body)}"}
 
     res_envelope = data.get("response", {})
     status = res_envelope.get("status", "ERROR")
@@ -294,6 +297,7 @@ async def vworld_reverse_geocode(lat: float, lon: float) -> Dict[str, Any]:
     }
 
     async with get_http_client() as client:
+        response = None
         try:
             response = await client.get(ADDRESS_API_URL, params=params)
             response.raise_for_status()
@@ -301,7 +305,8 @@ async def vworld_reverse_geocode(lat: float, lon: float) -> Dict[str, Any]:
         except httpx.HTTPError as e:
             return {"status": "NETWORK_ERROR", "message": f"Network request failed: {sanitize_error(str(e))}"}
         except ValueError:
-            return {"status": "ERROR", "message": f"Failed to parse JSON response: {response.text}"}
+            body = response.text if response is not None else ""
+            return {"status": "ERROR", "message": f"Failed to parse JSON response: {sanitize_error(body)}"}
 
     res_envelope = data.get("response", {})
     status = res_envelope.get("status", "ERROR")
@@ -351,6 +356,7 @@ async def vworld_get_parcel(pnu: str) -> Dict[str, Any]:
     }
 
     async with get_http_client() as client:
+        response = None
         try:
             response = await client.get(DATA_API_URL, params=params)
             response.raise_for_status()
@@ -358,7 +364,8 @@ async def vworld_get_parcel(pnu: str) -> Dict[str, Any]:
         except httpx.HTTPError as e:
             return {"status": "NETWORK_ERROR", "message": f"Network request failed: {sanitize_error(str(e))}"}
         except ValueError:
-            return {"status": "ERROR", "message": f"Failed to parse JSON response: {response.text}"}
+            body = response.text if response is not None else ""
+            return {"status": "ERROR", "message": f"Failed to parse JSON response: {sanitize_error(body)}"}
 
     res_envelope = data.get("response", {})
     status = res_envelope.get("status", "ERROR")
@@ -448,7 +455,7 @@ async def vworld_get_landuse_zone(
 
     import asyncio
 
-    async def fetch_layer_zoning(layer_id: str, layer_name: str) -> List[Dict[str, Any]]:
+    async def fetch_layer_zoning(layer_id: str, layer_name: str) -> List[Dict[str, Any]] | Dict[str, Any]:
         params = {
             "SERVICE": "WFS",
             "REQUEST": "GetFeature",
@@ -495,7 +502,8 @@ async def vworld_get_landuse_zone(
     all_results = await asyncio.gather(*tasks)
     
     for rlist in all_results:
-        if isinstance(rlist, dict) and rlist.get("status") == "NETWORK_ERROR":
+        # fetch_layer_zoning returns a list of features, or an error dict on failure.
+        if isinstance(rlist, dict):
             return rlist
         zoning_results.extend(rlist)
 
