@@ -637,7 +637,16 @@ if __name__ == "__main__":
         
         # Retrieve Starlette application from FastMCP
         app = mcp.sse_app()
-        
+
+        # Health-check route. Cloud platforms (Cloudtype/Render) probe "/" to decide
+        # if the pod is ready. FastMCP's SSE app returns 404 on "/", which some
+        # platforms treat as "not ready", leaving the deploy stuck in "waiting" forever.
+        from starlette.routing import Route
+        from starlette.responses import PlainTextResponse
+        async def _health(request):
+            return PlainTextResponse("ok")
+        app.router.routes.append(Route("/", _health, methods=["GET"]))
+
         # Add middleware to disable buffering for cloud proxy (prevents 502 Bad Gateway / timeouts in SSE)
         class DisableBufferingMiddleware:
             def __init__(self, app):
