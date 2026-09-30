@@ -1,3 +1,9 @@
+> [!IMPORTANT]
+> **이 저장소는 더 이상 유지보수하지 않습니다 (보관 처리).**
+> VWorld·건축물대장·실거래가 MCP 서버 3개가 **[jeon3709-dev/realestate-mcp](https://github.com/jeon3709-dev/realestate-mcp)** 로 통합되었습니다.
+> `vworld_*` 도구 6개는 이름·파라미터가 그대로이며, `vworld_health_check`는 통합 `health_check`로 합쳐졌습니다.
+> 도구 대응표와 커넥터 교체 절차는 [MIGRATION.md](https://github.com/jeon3709-dev/realestate-mcp/blob/main/MIGRATION.md)를 참고하십시오.
+
 # VWorld Local MCP Server
 
 이 프로젝트는 부동산 개발 타당성 검토 업무 등에서 특정 필지의 위치, 경계, 지적정보, 용도지역지구, 공시지가 정보를 빠르게 조회할 수 있도록 **VWorld Open API**를 감싸는 로컬 MCP(Model Context Protocol) 서버입니다.
